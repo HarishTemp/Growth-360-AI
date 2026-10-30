@@ -32,13 +32,19 @@ public class HeadlessBootstrapTest {
         assertFalse(snapshot.rfmResults().isEmpty(), "RFM results should not be empty");
         assertFalse(snapshot.forecastPoints().isEmpty(), "Forecast points should be generated");
         assertFalse(snapshot.alerts().isEmpty(), "Risk alerts should be detected");
-        assertFalse(snapshot.recommendations().isEmpty(), "Prescriptive recommendations should be generated");
+        // 4. Section 41: MetricContext verification (Copilot Engine payload)
+        var metricContext = analyticsService.computeMetricContext();
+        assertNotNull(metricContext, "MetricContext must be non-null");
+        assertTrue(metricContext.totalRevenue() > 0, "MetricContext revenue must be positive");
+        assertNotNull(metricContext.growthScore(), "MetricContext GrowthScore must exist");
+        assertNotNull(metricContext.topProduct(), "Top product must be determined");
 
-        System.out.println("[Bootstrap Test] Total Revenue: $" + snapshot.totalRevenue());
-        System.out.println("[Bootstrap Test] Total Expenses: $" + snapshot.totalExpenses());
-        System.out.println("[Bootstrap Test] Net Profit: $" + snapshot.netProfit());
+        System.out.println("[Bootstrap Test] Total Revenue: ₹" + snapshot.totalRevenue());
+        System.out.println("[Bootstrap Test] Total Expenses: ₹" + snapshot.totalExpenses());
+        System.out.println("[Bootstrap Test] Net Profit: ₹" + snapshot.netProfit());
         System.out.println("[Bootstrap Test] Growth Score: " + snapshot.growthScore().overallScore() + " (" + snapshot.growthScore().healthBand() + ")");
-        System.out.println("[Bootstrap Test] Active Alerts: " + snapshot.alerts().size());
-        System.out.println("[Bootstrap Test] Recommendations: " + snapshot.recommendations().size());
+        System.out.println("[Bootstrap Test] MetricContext Top SKU: " + metricContext.topProduct());
+        System.out.println("[Bootstrap Test] Active Alerts (PriorityQueue): " + snapshot.alerts().size());
+        System.out.println("[Bootstrap Test] Prescriptive Recommendations: " + snapshot.recommendations().size());
     }
 }

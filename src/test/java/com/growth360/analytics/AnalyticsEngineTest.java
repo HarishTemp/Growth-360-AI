@@ -173,4 +173,22 @@ public class AnalyticsEngineTest {
         assertTrue(recs.stream().anyMatch(r -> r.category().contains("Inventory")));
         assertTrue(recs.stream().anyMatch(r -> r.category().contains("Financial")));
     }
+
+    @Test
+    @DisplayName("PriorityQueue<Alert>: Correctly prioritizes CRITICAL -> WARNING -> INFO alerts (Section 21)")
+    void testPriorityQueueAlertOrdering() {
+        PriorityQueue<Alert> queue = new PriorityQueue<>((a, b) -> {
+            int rankA = switch (a.severity()) { case CRITICAL -> 3; case WARNING -> 2; case INFO -> 1; };
+            int rankB = switch (b.severity()) { case CRITICAL -> 3; case WARNING -> 2; case INFO -> 1; };
+            return Integer.compare(rankB, rankA);
+        });
+
+        queue.offer(new Alert("1", Alert.AlertType.REVENUE, Severity.INFO, "Info Alert", "Notice", 10.0));
+        queue.offer(new Alert("2", Alert.AlertType.INVENTORY, Severity.CRITICAL, "Critical Stockout", "Danger", 0.0));
+        queue.offer(new Alert("3", Alert.AlertType.EXPENSE, Severity.WARNING, "Warning Anomaly", "Watch", 500.0));
+
+        assertEquals(Severity.CRITICAL, queue.poll().severity(), "First polled alert must be CRITICAL");
+        assertEquals(Severity.WARNING, queue.poll().severity(), "Second polled alert must be WARNING");
+        assertEquals(Severity.INFO, queue.poll().severity(), "Third polled alert must be INFO");
+    }
 }

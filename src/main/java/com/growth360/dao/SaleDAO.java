@@ -15,7 +15,7 @@ import java.util.List;
 public class SaleDAO {
 
     private static final String SQL_INSERT_SALE =
-            "INSERT INTO sales (customer_id, product_id, quantity, amount, sale_date) VALUES (?, ?, ?, ?, ?)";
+            "INSERT INTO sales (customer_id, product_id, quantity, amount, channel, sale_date) VALUES (?, ?, ?, ?, ?, ?)";
     private static final String SQL_CHECK_STOCK =
             "SELECT stock_qty FROM products WHERE id = ? FOR UPDATE";
     private static final String SQL_DECREMENT_STOCK =
@@ -70,7 +70,8 @@ public class SaleDAO {
                 psSale.setInt(2, sale.getProductId());
                 psSale.setInt(3, sale.getQuantity());
                 psSale.setDouble(4, sale.getAmount());
-                psSale.setTimestamp(5, Timestamp.valueOf(sale.getSaleDate() != null ? sale.getSaleDate() : LocalDateTime.now()));
+                psSale.setString(5, "Store");
+                psSale.setTimestamp(6, Timestamp.valueOf(sale.getSaleDate() != null ? sale.getSaleDate() : LocalDateTime.now()));
                 psSale.executeUpdate();
 
                 try (ResultSet rs = psSale.getGeneratedKeys()) {

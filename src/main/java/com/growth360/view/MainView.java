@@ -43,6 +43,7 @@ public class MainView extends BorderPane {
     private InventoryView inventoryView;
     private CustomerView customerView;
     private AlertsView alertsView;
+    private BusinessInsightsView businessInsightsView;
 
     // UI elements
     private StackPane contentArea;
@@ -134,8 +135,9 @@ public class MainView extends BorderPane {
         Button btnInventory = createNavButton("📦  Watch Inventory (ROP)", () -> showInventory());
         Button btnCustomers = createNavButton("👥  Encircle Loyalty (RFM)", () -> showCustomers());
         Button btnAlerts = createNavButton("⚠️  Horology Risk Alerts", () -> showAlerts());
+        Button btnInsights = createNavButton("💡  Business Insights", () -> showBusinessInsights());
 
-        navList.getChildren().addAll(btnDashboard, btnSales, btnExpenses, btnInventory, btnCustomers, btnAlerts);
+        navList.getChildren().addAll(btnDashboard, btnSales, btnExpenses, btnInventory, btnCustomers, btnAlerts, btnInsights);
         VBox.setVgrow(navList, Priority.ALWAYS);
 
         // Footer / Database Engine Status
@@ -269,6 +271,15 @@ public class MainView extends BorderPane {
         setView(alertsView, "SURVEILLANCE / DECISION ENGINE", "Risk Alerts & Prescriptive Recommendations");
     }
 
+    private void showBusinessInsights() {
+        if (businessInsightsView == null) {
+            businessInsightsView = new BusinessInsightsView(analyticsService);
+        } else {
+            businessInsightsView.loadInsights();
+        }
+        setView(businessInsightsView, "STRATEGIC / PRESCRIPTIVE", "Business Insights & Decision Support");
+    }
+
     private void refreshCurrentView() {
         if (contentArea.getChildren().isEmpty()) return;
         Node current = contentArea.getChildren().get(0);
@@ -284,6 +295,8 @@ public class MainView extends BorderPane {
             customerController.loadCustomers();
         } else if (current instanceof AlertsView) {
             alertController.loadAlerts();
+        } else if (current instanceof BusinessInsightsView biv) {
+            biv.loadInsights();
         }
     }
 }

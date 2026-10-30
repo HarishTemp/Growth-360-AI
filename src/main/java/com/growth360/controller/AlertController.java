@@ -1,22 +1,26 @@
 package com.growth360.controller;
 
+import com.growth360.dao.AlertDAO;
 import com.growth360.model.Alert;
 import com.growth360.model.Recommendation;
 import com.growth360.service.AnalyticsService;
 import com.growth360.view.AlertsView;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class AlertController {
 
     private final AnalyticsService analyticsService;
+    private final AlertDAO alertDAO;
     private AlertsView view;
     private List<Alert> cachedAlerts = new ArrayList<>();
     private List<Recommendation> cachedRecommendations = new ArrayList<>();
 
     public AlertController(AnalyticsService analyticsService) {
         this.analyticsService = analyticsService;
+        this.alertDAO = new AlertDAO();
     }
 
     public void setView(AlertsView view) {
@@ -46,9 +50,14 @@ public class AlertController {
     public void resolveAlert(String alertId) {
         cachedAlerts.removeIf(a -> a.id().equals(alertId));
         cachedRecommendations.removeIf(r -> r.alertId().equals(alertId));
+        try {
+            alertDAO.resolve(alertId);
+        } catch (SQLException ex) {
+            System.err.println("[AlertController] Error marking alert resolved in DB: " + ex.getMessage());
+        }
         if (view != null) {
             view.setAlertsData(cachedAlerts, cachedRecommendations);
-            view.showSuccess("Risk alert marked as resolved.");
+            view.showSuccess("Risk alert marked as resolved and updated in database.");
         }
     }
 }

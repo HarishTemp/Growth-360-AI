@@ -115,22 +115,25 @@ public class AnalyticsService {
         List<Alert> revAlerts = zScoreDetector.createRevenueAlerts(monthlyRevenue);
         List<Alert> expAlerts = zScoreDetector.createExpenseAlerts(expenseByCategory);
 
-        // 5. Combine and sort all alerts (Critical first, then Warning, then Info)
-        List<Alert> allAlerts = new ArrayList<>();
-        allAlerts.addAll(invAlerts);
-        allAlerts.addAll(expAlerts);
-        allAlerts.addAll(revAlerts);
-        allAlerts.addAll(custAlerts);
-
-        allAlerts.sort((a, b) -> {
+        // 5. Section 21: PriorityQueue<Alert> for prioritized alert triage (CRITICAL -> WARNING -> INFO)
+        PriorityQueue<Alert> alertPriorityQueue = new PriorityQueue<>((a, b) -> {
             int sevCompare = Integer.compare(severityRank(b.severity()), severityRank(a.severity()));
             return sevCompare != 0 ? sevCompare : b.timestamp().compareTo(a.timestamp());
         });
+        alertPriorityQueue.addAll(invAlerts);
+        alertPriorityQueue.addAll(expAlerts);
+        alertPriorityQueue.addAll(revAlerts);
+        alertPriorityQueue.addAll(custAlerts);
+
+        List<Alert> allAlerts = new ArrayList<>();
+        while (!alertPriorityQueue.isEmpty()) {
+            allAlerts.add(alertPriorityQueue.poll());
+        }
 
         // 6. Revenue Forecasting
         List<ForecastPoint> forecastPoints = revenueForecaster.forecastMonthlyRevenue(sales);
 
-        // 7. Growth Score Calculation
+        // 7. Growth Score Calculation (5-factor formula)
         GrowthScoreResult growthScore = growthScoreCalculator.calculateScore(sales, expenses, inventoryMetrics, rfmResults);
 
         // 8. Prescriptive Recommendations
@@ -148,6 +151,53 @@ public class AnalyticsService {
                 recommendations,
                 monthlyRevenue,
                 expenseByCategory
+        );
+    }
+
+    /**
+     * Section 41: Assembles the MetricContext record payload for executive reporting
+     * and the AI Copilot engine.
+     */
+    public MetricContext computeMetricContext() throws SQLException {
+        AnalyticsSnapshot snapshot = computeSnapshot();
+
+        String topProduct = snapshot.inventoryMetrics().isEmpty() ? "N/A" :
+                snapshot.inventoryMetrics().stream()
+                        .max(Comparator.comparingDouble(m -> m.dailyDemand() * m.product().getUnitPrice()))
+                        .map(m -> m.product().getName())
+                        .orElse("N/A");
+
+        int atRiskCount = (int) snapshot.rfmResults().stream()
+                .filter(r -> r.segment() == RfmResult.Segment.AT_RISK || r.segment() == RfmResult.Segment.LOST)
+                .count();
+
+        int activeCount = (int) snapshot.rfmResults().stream()
+                .filter(r -> r.recencyDays() <= 60)
+                .count();
+
+        List<InventoryMetric> inventoryRisks = snapshot.inventoryMetrics().stream()
+                .filter(m -> m.status() == ReorderPointCalculator.InventoryStatus.OUT_OF_STOCK ||
+                             m.status() == ReorderPointCalculator.InventoryStatus.CRITICAL_REORDER ||
+                             m.status() == ReorderPointCalculator.InventoryStatus.REORDER_SOON)
+                .toList();
+
+        double profitMargin = snapshot.totalRevenue() > 0 ? (snapshot.netProfit() / snapshot.totalRevenue()) * 100.0 : 0.0;
+        double momGrowth = snapshot.growthScore().salesVelocity();
+
+        return new MetricContext(
+                YearMonth.now().format(DateTimeFormatter.ofPattern("MMM yyyy")),
+                snapshot.totalRevenue(),
+                momGrowth,
+                snapshot.totalExpenses(),
+                snapshot.netProfit(),
+                Math.round(profitMargin * 10.0) / 10.0,
+                snapshot.growthScore().toGrowthScore(),
+                inventoryRisks,
+                topProduct,
+                activeCount,
+                atRiskCount,
+                snapshot.alerts(),
+                snapshot.recommendations()
         );
     }
 

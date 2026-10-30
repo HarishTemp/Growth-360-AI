@@ -1,13 +1,7 @@
 package com.growth360.util;
 
-import com.growth360.dao.CustomerDAO;
-import com.growth360.dao.ExpenseDAO;
-import com.growth360.dao.ProductDAO;
-import com.growth360.dao.SaleDAO;
-import com.growth360.model.Customer;
-import com.growth360.model.Expense;
-import com.growth360.model.Product;
-import com.growth360.model.Sale;
+import com.growth360.dao.*;
+import com.growth360.model.*;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -20,6 +14,7 @@ import java.util.Random;
  * Seeds realistic 6-month historical business data for Titan Company Limited (Watches & Wearables Division).
  * Generates iconic collections (Titan Edge, Raga, Nebula, Octane, Fastrack, Sonata),
  * Encircle loyalty members, and World of Titan boutique retail operations.
+ * Calibrated for positive net margins, healthy growth scores, and a verified Z-score marketing anomaly spike.
  */
 public final class DataSeeder {
 
@@ -27,6 +22,7 @@ public final class DataSeeder {
 
     public static void seedIfEmpty() {
         try {
+            UserDAO userDAO = new UserDAO();
             ProductDAO productDAO = new ProductDAO();
             CustomerDAO customerDAO = new CustomerDAO();
             SaleDAO saleDAO = new SaleDAO();
@@ -38,9 +34,9 @@ public final class DataSeeder {
             boolean hasTitanData = existingProducts.stream()
                     .anyMatch(p -> p.getName().toLowerCase().contains("titan") || p.getName().toLowerCase().contains("nebula"));
 
-            boolean hasUncalibratedExpenses = existingExpenses.stream().anyMatch(e -> e.getAmount() > 1000000.0);
-            if (hasTitanData && existingProducts.size() >= 10 && !existingExpenses.isEmpty() && !hasUncalibratedExpenses) {
-                System.out.println("[DataSeeder] Titan Watches dataset already verified (" + existingProducts.size() + " timepieces, " + existingExpenses.size() + " expense logs).");
+            boolean isProperlyCalibrated = existingProducts.size() >= 10 && existingExpenses.size() >= 30;
+            if (hasTitanData && isProperlyCalibrated && userDAO.count() > 0) {
+                System.out.println("[DataSeeder] Titan Watches dataset already verified (" + existingProducts.size() + " SKUs, " + existingExpenses.size() + " expense logs).");
                 return;
             }
 
@@ -48,20 +44,26 @@ public final class DataSeeder {
             System.out.println("[DataSeeder] Initializing TITAN WATCHES (Titan Company Ltd.) horology dataset...");
             System.out.println("--------------------------------------------------");
 
-            // If old non-Titan data or uncalibrated data exists, cleanly wipe tables for fresh Titan demo
-            if (!existingProducts.isEmpty() && (!hasTitanData || hasUncalibratedExpenses)) {
-                System.out.println("[DataSeeder] Migrating database to Titan Watches product catalog...");
-                try (Connection conn = DBConnection.getConnection();
-                     Statement stmt = conn.createStatement()) {
-                    stmt.execute("DELETE FROM sales");
-                    stmt.execute("DELETE FROM expenses");
-                    stmt.execute("DELETE FROM products");
-                    stmt.execute("DELETE FROM customers");
-                }
+            // Cleanly wipe tables for fresh calibrated demo
+            try (Connection conn = DBConnection.getConnection();
+                 Statement stmt = conn.createStatement()) {
+                stmt.execute("DELETE FROM sales");
+                stmt.execute("DELETE FROM expenses");
+                stmt.execute("DELETE FROM products");
+                stmt.execute("DELETE FROM customers");
+                stmt.execute("DELETE FROM risk_alerts");
+                stmt.execute("DELETE FROM users");
             }
 
+            // 0. Seed Primary Business User Profile
+            userDAO.save(new User(
+                    "World of Titan — Flagship Boutique",
+                    "Rajesh V. (Boutique General Manager)",
+                    "indiranagar.boutique@titan.co.in",
+                    "INR"
+            ));
+
             // 1. Seed Iconic Titan Timepiece Collections
-            // Tailored to showcase Healthy, Reorder Point, Out of Stock, and Overstocked states
             Product[] titanWatches = {
                     new Product("Titan Edge Ceramic Slimline", "Titan Edge (Ultra-Slim)", 42, 14000.0, 29995.0, 14, 10),
                     new Product("Titan Raga Viva Rose Gold Pearl", "Titan Raga (Women)", 18, 4200.0, 9995.0, 10, 20),           // Low stock / ROP breach!
@@ -81,7 +83,7 @@ public final class DataSeeder {
             List<Product> savedProducts = productDAO.findAll();
             System.out.println("[DataSeeder] Seeded " + savedProducts.size() + " iconic Titan timepieces & wearable SKUs.");
 
-            // 2. Seed Titan Encircle Loyalty Customers (Bangalore, Mumbai, Delhi, Chennai, Hyderabad)
+            // 2. Seed 24 Titan Encircle Loyalty Customers (Bangalore, Mumbai, Delhi, Chennai, Hyderabad, Pune, Kolkata)
             Customer[] encircleCustomers = {
                     new Customer("Aarav Sharma", "aarav.sharma@gmail.com", "+91 98201 11223"),
                     new Customer("Priya Patel", "priya.patel@yahoo.co.in", "+91 98450 22334"),
@@ -94,7 +96,19 @@ public final class DataSeeder {
                     new Customer("Karthik Sundaram", "karthik.s@tcs.com", "+91 98840 99001"),
                     new Customer("Meera Merchant", "meera.m@merchantgroup.in", "+91 97690 12345"),
                     new Customer("Siddharth Banerjee", "sid.b@iitb.ac.in", "+91 99880 23456"),
-                    new Customer("Neha Wadhwa", "neha.w@delhicapital.com", "+91 98100 34567")
+                    new Customer("Neha Wadhwa", "neha.w@delhicapital.com", "+91 98100 34567"),
+                    new Customer("Aditya Verma", "aditya.v@bengaluru.tech", "+91 98455 12345"),
+                    new Customer("Pooja Hegde", "pooja.h@mangalore.in", "+91 98452 67890"),
+                    new Customer("Arjun Kapoor", "arjun.k@bollywoodstyle.com", "+91 99201 98765"),
+                    new Customer("Deepa Krishnamurthy", "deepa.k@chennaihorology.com", "+91 98400 45678"),
+                    new Customer("Manish Sisodia", "manish.s@businesscorp.in", "+91 98110 54321"),
+                    new Customer("Sunita Reddy", "sunita.r@hyderabadhealth.com", "+91 98490 87654"),
+                    new Customer("Kabir Mehta", "kabir.m@ahmedabadtextiles.com", "+91 98250 12389"),
+                    new Customer("Isha Deshmukh", "isha.d@puneauto.in", "+91 98220 98712"),
+                    new Customer("Gautam Gambhir", "gautam.g@sportsdelhi.com", "+91 98101 23456"),
+                    new Customer("Tanya Choudhary", "tanya.c@kolkataheritage.in", "+91 98300 76543"),
+                    new Customer("Rameshwar Birla", "ramesh.birla@industrialgroup.in", "+91 98290 87650"),
+                    new Customer("Shweta Bachchan", "shweta.b@mumbaicouture.com", "+91 98202 34567")
             };
 
             for (Customer c : encircleCustomers) {
@@ -104,8 +118,7 @@ public final class DataSeeder {
             List<Customer> savedCustomers = customerDAO.findAll();
             System.out.println("[DataSeeder] Seeded " + savedCustomers.size() + " Titan Encircle loyalty customer profiles.");
 
-            // 3. Seed 6 Months of Boutique Sales History
-            // Simulates Champions (Nebula & Edge repeat luxury buyers), Loyal, Potential, At-Risk, and Lost buyers
+            // 3. Seed 6 Months of Boutique Sales History with Realistic High Volume
             LocalDateTime now = LocalDateTime.now();
             Random rng = new Random(42);
 
@@ -115,28 +128,28 @@ public final class DataSeeder {
                 int maxDaysAgo;
                 int minDaysAgo;
 
-                if (cid <= 3) {
+                if (cid <= 5) {
                     // Champions: frequent luxury watch collectors, recent visits to World of Titan
-                    orderCount = 12 + rng.nextInt(6);
+                    orderCount = 10 + rng.nextInt(6);
                     minDaysAgo = 2;
                     maxDaysAgo = 160;
-                } else if (cid <= 6) {
+                } else if (cid <= 12) {
                     // Loyal: Regular buyers across festivals and birthdays
-                    orderCount = 8 + rng.nextInt(4);
+                    orderCount = 6 + rng.nextInt(4);
                     minDaysAgo = 8;
                     maxDaysAgo = 170;
-                } else if (cid <= 8) {
-                    // Potential: Bought Fastrack/Titan Smart recently
-                    orderCount = 2 + rng.nextInt(2);
-                    minDaysAgo = 4;
-                    maxDaysAgo = 30;
-                } else if (cid <= 10) {
+                } else if (cid <= 17) {
+                    // Potential Loyalists: Bought Fastrack/Titan Smart recently
+                    orderCount = 3 + rng.nextInt(3);
+                    minDaysAgo = 5;
+                    maxDaysAgo = 45;
+                } else if (cid <= 21) {
                     // At-Risk: Bought expensive timepieces 3-6 months ago, but inactive recently
-                    orderCount = 7 + rng.nextInt(3);
-                    minDaysAgo = 65;
+                    orderCount = 5 + rng.nextInt(3);
+                    minDaysAgo = 70;
                     maxDaysAgo = 175;
                 } else {
-                    // Lost: Single purchase 5 months ago
+                    // Lost / Inactive: Single purchase 5 months ago
                     orderCount = 1;
                     minDaysAgo = 140;
                     maxDaysAgo = 175;
@@ -144,7 +157,7 @@ public final class DataSeeder {
 
                 for (int i = 0; i < orderCount; i++) {
                     Product prod = savedProducts.get(rng.nextInt(savedProducts.size()));
-                    int maxQty = (prod.getUnitPrice() < 3000) ? 6 : (prod.getUnitPrice() < 15000) ? 3 : 1;
+                    int maxQty = (prod.getUnitPrice() < 3000) ? 5 : (prod.getUnitPrice() < 15000) ? 2 : 1;
                     int qty = 1 + rng.nextInt(maxQty);
                     double amount = Math.round(prod.getUnitPrice() * qty * 100.0) / 100.0;
                     int daysAgo = minDaysAgo + rng.nextInt(Math.max(1, maxDaysAgo - minDaysAgo + 1));
@@ -155,37 +168,43 @@ public final class DataSeeder {
                 }
             }
 
-            // Seed 4 Corporate & Festive Bulk Gifting Orders (Classic Titan B2B channel)
-            Customer corpClient = savedCustomers.get(4); // Rajesh Malhotra (Corporate)
-            insertSeedSale(new Sale(corpClient.getId(), savedProducts.get(4).getId(), 45, 45 * 2995.0, now.minusDays(35))); // Fastrack Reflex bulk order
-            insertSeedSale(new Sale(corpClient.getId(), savedProducts.get(5).getId(), 60, 60 * 1499.0, now.minusDays(110))); // Sonata bulk order
-            insertSeedSale(new Sale(corpClient.getId(), savedProducts.get(0).getId(), 8, 8 * 29995.0, now.minusDays(18))); // Executive Titan Edge gifting
+            // Seed 6 Corporate & Festive Bulk Gifting Orders (Classic Titan B2B channel)
+            Customer corpClient1 = savedCustomers.get(4);  // Rajesh Malhotra (Corporate)
+            Customer corpClient2 = savedCustomers.get(22); // Rameshwar Birla (Industrial)
+
+            insertSeedSale(new Sale(corpClient1.getId(), savedProducts.get(4).getId(), 50, 50 * 2995.0, now.minusDays(35)));   // Fastrack Reflex bulk order (₹1.49L)
+            insertSeedSale(new Sale(corpClient1.getId(), savedProducts.get(5).getId(), 80, 80 * 1499.0, now.minusDays(110)));  // Sonata bulk order (₹1.19L)
+            insertSeedSale(new Sale(corpClient1.getId(), savedProducts.get(0).getId(), 10, 10 * 29995.0, now.minusDays(18)));  // Executive Titan Edge gifting (₹2.99L)
+            insertSeedSale(new Sale(corpClient2.getId(), savedProducts.get(2).getId(), 2, 2 * 245000.0, now.minusDays(60)));    // Nebula Haute Horlogerie Gold (₹4.90L)
+            insertSeedSale(new Sale(corpClient2.getId(), savedProducts.get(6).getId(), 25, 25 * 11995.0, now.minusDays(85)));  // Titan Octane Sports Awards (₹2.99L)
+            insertSeedSale(new Sale(corpClient1.getId(), savedProducts.get(7).getId(), 8, 8 * 27995.0, now.minusDays(12)));    // Titan Maritime Corporate (₹2.23L)
 
             System.out.println("[DataSeeder] Seeded 6 months of World of Titan boutique transactions & corporate gifting orders.");
 
-            // 4. Seed 6 Months of Operational Expenses for Titan Watches Division
+            // 4. Seed 6 Months of Operational Expenses Calibrated for Healthy Net Margin (~40-50%)
             for (int monthOffset = 5; monthOffset >= 0; monthOffset--) {
                 LocalDateTime monthDate = now.minusMonths(monthOffset);
 
-                // Fixed Boutique Leases (e.g. World of Titan Flagship Boutique)
-                expenseDAO.save(new Expense("Boutique Leases", "World of Titan Flagship Boutique commercial lease", 85000.0, monthDate.withDayOfMonth(1)));
+                // Boutique Leases (World of Titan Flagship Boutique)
+                expenseDAO.save(new Expense("Boutique Leases", "World of Titan Flagship Boutique commercial lease", 55000.0, monthDate.withDayOfMonth(1)));
 
-                // Horology Specialists & Boutique Staff Salaries
-                expenseDAO.save(new Expense("Horology Staff & Payroll", "Master watchmakers, boutique managers & retail staff compensation", 140000.0, monthDate.withDayOfMonth(28)));
+                // Horology Specialists & Retail Staff Compensation
+                expenseDAO.save(new Expense("Horology Staff & Payroll", "Master watchmakers, boutique managers & retail staff compensation", 85000.0, monthDate.withDayOfMonth(28)));
 
                 // Retail POS & SAP Enterprise ERP Subscriptions
-                expenseDAO.save(new Expense("ERP & Boutique Tech", "SAP Horology Supply Chain ERP & retail billing software", 25000.0, monthDate.withDayOfMonth(5)));
+                expenseDAO.save(new Expense("ERP & Boutique Tech", "SAP Horology Supply Chain ERP & retail billing software", 15000.0, monthDate.withDayOfMonth(5)));
 
-                // Sapphire Crystal & Swiss Movement Import Freight
-                double freight = 32000.0 + rng.nextDouble() * 12000.0;
+                // Precision Components & Import Logistics
+                double freight = 22000.0 + rng.nextDouble() * 5000.0;
                 expenseDAO.save(new Expense("Component Logistics", "Precision quartz movement & sapphire crystal import freight", Math.round(freight * 100.0) / 100.0, monthDate.withDayOfMonth(15)));
 
-                // Titan Care Warranty & After-Sales Repair Network
-                double repair = 26000.0 + rng.nextDouble() * 8000.0;
+                // Titan Care Warranty & Watch Restoration
+                double repair = 18000.0 + rng.nextDouble() * 4000.0;
                 expenseDAO.save(new Expense("Titan Care Service", "After-sales watch restoration, battery replacements & waterproofing tests", Math.round(repair * 100.0) / 100.0, monthDate.withDayOfMonth(20)));
 
                 // Festive Celebrity Ad Blitz (Diwali / Wedding Season) -> Z-Score Spike Anomaly in monthOffset = 1!
-                double marketing = (monthOffset == 1) ? 385000.0 : (55000.0 + rng.nextDouble() * 20000.0);
+                // Baseline marketing: ~₹35,000. Spike: ₹320,000 (9x jump!)
+                double marketing = (monthOffset == 1) ? 320000.0 : (35000.0 + rng.nextDouble() * 10000.0);
                 String mktgDesc = (monthOffset == 1) ?
                         "Titan Festive Season Ad Blitz (Diwali/Wedding Campaign with Brand Ambassadors - Anomaly Spike)" :
                         "Standard digital performance marketing & print catalogue distribution";
@@ -204,14 +223,15 @@ public final class DataSeeder {
     }
 
     private static void insertSeedSale(Sale sale) throws SQLException {
-        String sql = "INSERT INTO sales (customer_id, product_id, quantity, amount, sale_date) VALUES (?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO sales (customer_id, product_id, quantity, amount, channel, sale_date) VALUES (?, ?, ?, ?, ?, ?)";
         try (var conn = DBConnection.getConnection();
              var ps = conn.prepareStatement(sql)) {
             ps.setInt(1, sale.getCustomerId());
             ps.setInt(2, sale.getProductId());
             ps.setInt(3, sale.getQuantity());
             ps.setDouble(4, sale.getAmount());
-            ps.setTimestamp(5, java.sql.Timestamp.valueOf(sale.getSaleDate()));
+            ps.setString(5, "Store");
+            ps.setTimestamp(6, java.sql.Timestamp.valueOf(sale.getSaleDate()));
             ps.executeUpdate();
         }
     }

@@ -29,10 +29,16 @@ if "%DIRNAME%"=="" set DIRNAME=.
 set APP_BASE_NAME=%~n0
 set APP_HOME=%DIRNAME%
 
-@rem Resolve Gradle distribution
-set GRADLE_EXE="C:\Users\jassi\.gradle\wrapper\dists\gradle-8.14.3-all\10utluxaxniiv4wxiphsi49nj\gradle-8.14.3\bin\gradle.bat"
+@rem Resolve Gradle distribution dynamically
+set GRADLE_EXE="C:\Users\ASUS\.gradle\wrapper\dists\gradle-9.2.0-bin\11i5gvueggl8a5cioxuftxrik\gradle-9.2.0\bin\gradle.bat"
 if exist %GRADLE_EXE% (
     call %GRADLE_EXE% %*
+    goto end
+)
+
+for /f "delims=" %%i in ('dir /b /s "%USERPROFILE%\.gradle\wrapper\dists\gradle.bat" 2^>nul') do (
+    set GRADLE_EXE="%%i"
+    call %%GRADLE_EXE%% %*
     goto end
 )
 

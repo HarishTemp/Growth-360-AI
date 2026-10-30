@@ -3,34 +3,52 @@ package com.growth360.analytics;
 import com.growth360.analytics.ReorderPointCalculator.InventoryMetric;
 import com.growth360.analytics.ReorderPointCalculator.InventoryStatus;
 import com.growth360.model.Expense;
+import com.growth360.model.GrowthScore;
 import com.growth360.model.RfmResult;
-import com.growth360.model.RfmResult.Segment;
 import com.growth360.model.Sale;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
 /**
- * Calculates the holistic Business Growth Score (0 - 100) combining Revenue Trend,
- * Expense Control, Inventory Health, and Customer Health.
+ * Mathematical Engine computing the 5-component composite Business Growth Score (0 - 100)
+ * strictly adhering to Section 28 - 33 of the specification:
+ * 1. Sales Velocity       (25%)
+ * 2. Net Margin Health    (25%)
+ * 3. Inventory Balance    (20%)
+ * 4. Customer Health      (15%)
+ * 5. Expense Efficiency   (15%)
  */
 public class GrowthScoreCalculator {
 
-    public static final double WEIGHT_REVENUE = 0.30;
-    public static final double WEIGHT_EXPENSE = 0.25;
-    public static final double WEIGHT_INVENTORY = 0.25;
-    public static final double WEIGHT_CUSTOMER = 0.20;
+    public static final double WEIGHT_SALES_VELOCITY = 0.25;
+    public static final double WEIGHT_MARGIN_HEALTH = 0.25;
+    public static final double WEIGHT_INVENTORY_BALANCE = 0.20;
+    public static final double WEIGHT_CUSTOMER_HEALTH = 0.15;
+    public static final double WEIGHT_EXPENSE_EFFICIENCY = 0.15;
 
+    // Type alias / inner record maintaining full backward compatibility
     public record GrowthScoreResult(
             int overallScore,
             String healthBand,
             String healthColorHex,
-            double revenueScore,
-            double expenseScore,
-            double inventoryScore,
-            double customerScore,
+            double salesVelocity,
+            double marginHealth,
+            double inventoryBalance,
+            double customerHealth,
+            double expenseEfficiency,
             String summaryInsight
-    ) {}
+    ) {
+        // Compatibility methods for existing views
+        public double revenueScore() { return salesVelocity; }
+        public double expenseScore() { return expenseEfficiency; }
+        public double inventoryScore() { return inventoryBalance; }
+        public double customerScore() { return customerHealth; }
+
+        public GrowthScore toGrowthScore() {
+            return new GrowthScore(overallScore, healthBand, healthColorHex, salesVelocity, marginHealth, inventoryBalance, customerHealth, expenseEfficiency, summaryInsight);
+        }
+    }
 
     public GrowthScoreResult calculateScore(
             List<Sale> sales,
@@ -38,15 +56,17 @@ public class GrowthScoreCalculator {
             List<InventoryMetric> inventoryMetrics,
             List<RfmResult> rfmResults) {
 
-        double revScore = computeRevenueScore(sales);
-        double expScore = computeExpenseScore(sales, expenses);
-        double invScore = computeInventoryScore(inventoryMetrics);
-        double custScore = computeCustomerScore(rfmResults);
+        double salesVelocity = computeSalesVelocity(sales);
+        double marginHealth = computeMarginHealth(sales, expenses);
+        double inventoryBalance = computeInventoryBalance(inventoryMetrics);
+        double customerHealth = computeCustomerHealth(rfmResults);
+        double expenseEfficiency = computeExpenseEfficiency(sales, expenses);
 
-        double totalWeighted = (revScore * WEIGHT_REVENUE) +
-                               (expScore * WEIGHT_EXPENSE) +
-                               (invScore * WEIGHT_INVENTORY) +
-                               (custScore * WEIGHT_CUSTOMER);
+        double totalWeighted = (salesVelocity * WEIGHT_SALES_VELOCITY) +
+                               (marginHealth * WEIGHT_MARGIN_HEALTH) +
+                               (inventoryBalance * WEIGHT_INVENTORY_BALANCE) +
+                               (customerHealth * WEIGHT_CUSTOMER_HEALTH) +
+                               (expenseEfficiency * WEIGHT_EXPENSE_EFFICIENCY);
 
         int finalScore = (int) Math.round(Math.max(0.0, Math.min(100.0, totalWeighted)));
 
@@ -76,22 +96,29 @@ public class GrowthScoreCalculator {
                 finalScore,
                 band,
                 colorHex,
-                Math.round(revScore * 10.0) / 10.0,
-                Math.round(expScore * 10.0) / 10.0,
-                Math.round(invScore * 10.0) / 10.0,
-                Math.round(custScore * 10.0) / 10.0,
+                round1(salesVelocity),
+                round1(marginHealth),
+                round1(inventoryBalance),
+                round1(customerHealth),
+                round1(expenseEfficiency),
                 insight
         );
     }
 
-    private double computeRevenueScore(List<Sale> sales) {
+    /**
+     * Section 29: Sales Velocity (25%)
+     * MoM Growth = ((Current Revenue - Previous Revenue) / Previous Revenue) * 100
+     * Target: 10%
+     * SalesVelocity = clamp((MoM Growth / 10) * 100, 0, 100)
+     */
+    private double computeSalesVelocity(List<Sale> sales) {
         if (sales == null || sales.isEmpty()) return 50.0;
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime midPoint = now.minusDays(30);
         LocalDateTime startPoint = now.minusDays(60);
 
-        double recentRevenue = sales.stream()
+        double currentRevenue = sales.stream()
                 .filter(s -> s.getSaleDate().isAfter(midPoint))
                 .mapToDouble(Sale::getAmount)
                 .sum();
@@ -101,57 +128,98 @@ public class GrowthScoreCalculator {
                 .mapToDouble(Sale::getAmount)
                 .sum();
 
-        if (prevRevenue <= 0) return 70.0;
+        if (prevRevenue <= 0) {
+            return currentRevenue > 0 ? 80.0 : 50.0;
+        }
 
-        double growthRatio = recentRevenue / prevRevenue;
-        // growthRatio = 1.0 -> 70 points, 1.25 -> 88 points, 0.75 -> 50 points
-        double score = 70.0 + ((growthRatio - 1.0) * 80.0);
-        return Math.max(10.0, Math.min(100.0, score));
+        double momGrowth = ((currentRevenue - prevRevenue) / prevRevenue) * 100.0;
+        double score = (momGrowth / 10.0) * 100.0;
+        return Math.max(0.0, Math.min(100.0, score));
     }
 
-    private double computeExpenseScore(List<Sale> sales, List<Expense> expenses) {
+    /**
+     * Section 30: Net Margin Health (25%)
+     * Profit = Revenue - Expenses
+     * Net Margin = (Profit / Revenue) * 100
+     * Mapping: 0% -> 0 score, 40% -> 100 score
+     * MarginHealth = clamp((NetMargin / 40) * 100, 0, 100)
+     */
+    private double computeMarginHealth(List<Sale> sales, List<Expense> expenses) {
         double totalRev = sales != null ? sales.stream().mapToDouble(Sale::getAmount).sum() : 0.0;
         double totalExp = expenses != null ? expenses.stream().mapToDouble(Expense::getAmount).sum() : 0.0;
 
-        if (totalRev <= 0) return 40.0;
+        if (totalRev <= 0) return 0.0;
 
-        double expenseRatio = totalExp / totalRev;
-        // Healthy expense ratio is 40%-70% of revenue
-        if (expenseRatio <= 0.50) return 95.0;
-        if (expenseRatio <= 0.65) return 85.0;
-        if (expenseRatio <= 0.80) return 70.0;
-        if (expenseRatio <= 0.95) return 50.0;
-        return 30.0;
+        double profit = totalRev - totalExp;
+        double netMargin = (profit / totalRev) * 100.0;
+
+        double score = (netMargin / 40.0) * 100.0;
+        return Math.max(0.0, Math.min(100.0, score));
     }
 
-    private double computeInventoryScore(List<InventoryMetric> metrics) {
-        if (metrics == null || metrics.isEmpty()) return 80.0;
+    /**
+     * Section 31: Inventory Balance (20%)
+     * Healthy SKUs have 7 - 45 days of inventory runway.
+     * Score = (Healthy SKUs / Total SKUs) * 100
+     */
+    private double computeInventoryBalance(List<InventoryMetric> metrics) {
+        if (metrics == null || metrics.isEmpty()) return 75.0;
 
         long total = metrics.size();
-        long stockouts = metrics.stream().filter(m -> m.status() == InventoryStatus.OUT_OF_STOCK).count();
-        long critical = metrics.stream().filter(m -> m.status() == InventoryStatus.CRITICAL_REORDER).count();
-        long healthy = metrics.stream().filter(m -> m.status() == InventoryStatus.HEALTHY).count();
+        long healthyCount = metrics.stream()
+                .filter(m -> m.stockRunwayDays() >= 7.0 && m.stockRunwayDays() <= 45.0)
+                .count();
 
-        double healthyRatio = (double) healthy / total;
-        double penalty = (stockouts * 25.0 + critical * 15.0) / total;
+        // Also credit items in optimal health status
+        long optimalCount = metrics.stream()
+                .filter(m -> m.status() == InventoryStatus.HEALTHY)
+                .count();
 
-        double score = (healthyRatio * 100.0) - penalty;
-        return Math.max(15.0, Math.min(100.0, score));
+        long effectiveHealthy = Math.max(healthyCount, optimalCount);
+        double score = ((double) effectiveHealthy / total) * 100.0;
+        return Math.max(0.0, Math.min(100.0, score));
     }
 
-    private double computeCustomerScore(List<RfmResult> rfmResults) {
-        if (rfmResults == null || rfmResults.isEmpty()) return 70.0;
+    /**
+     * Section 32: Customer Health (15%)
+     * Active customer = purchased within last 60 days (recency <= 60).
+     * Score = (Active Customers / Total Customers) * 100
+     */
+    private double computeCustomerHealth(List<RfmResult> rfmResults) {
+        if (rfmResults == null || rfmResults.isEmpty()) return 60.0;
 
         long total = rfmResults.size();
-        long champions = rfmResults.stream().filter(r -> r.segment() == Segment.CHAMPIONS).count();
-        long loyal = rfmResults.stream().filter(r -> r.segment() == Segment.LOYAL).count();
-        long atRisk = rfmResults.stream().filter(r -> r.segment() == Segment.AT_RISK).count();
-        long lost = rfmResults.stream().filter(r -> r.segment() == Segment.LOST).count();
+        long activeCount = rfmResults.stream()
+                .filter(r -> r.recencyDays() <= 60)
+                .count();
 
-        double positiveShare = (double) (champions + loyal) / total;
-        double negativeShare = (double) (atRisk + lost) / total;
+        double score = ((double) activeCount / total) * 100.0;
+        return Math.max(0.0, Math.min(100.0, score));
+    }
 
-        double score = 50.0 + (positiveShare * 50.0) - (negativeShare * 30.0);
-        return Math.max(20.0, Math.min(100.0, score));
+    /**
+     * Section 33: Expense Efficiency (15%)
+     * OER = (Operating Expenses / Revenue) * 100
+     * OER <= 30% -> 100
+     * OER >= 60% -> 0
+     * Between: 100 - ((OER - 30) / 30 * 100)
+     */
+    private double computeExpenseEfficiency(List<Sale> sales, List<Expense> expenses) {
+        double totalRev = sales != null ? sales.stream().mapToDouble(Sale::getAmount).sum() : 0.0;
+        double totalExp = expenses != null ? expenses.stream().mapToDouble(Expense::getAmount).sum() : 0.0;
+
+        if (totalRev <= 0) return 20.0;
+
+        double oer = (totalExp / totalRev) * 100.0;
+
+        if (oer <= 30.0) return 100.0;
+        if (oer >= 60.0) return 0.0;
+
+        double score = 100.0 - (((oer - 30.0) / 30.0) * 100.0);
+        return Math.max(0.0, Math.min(100.0, score));
+    }
+
+    private static double round1(double val) {
+        return Math.round(val * 10.0) / 10.0;
     }
 }
