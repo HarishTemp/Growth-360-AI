@@ -1,7 +1,9 @@
 package com.growth360.view;
 
+import com.growth360.copilot.AiCopilotEngine;
+import com.growth360.copilot.CopilotResponse;
+import com.growth360.model.MetricContext;
 import com.growth360.model.Recommendation;
-import com.growth360.model.Recommendation.Priority;
 import com.growth360.service.AnalyticsService;
 import com.growth360.util.Theme;
 import javafx.application.Platform;
@@ -14,19 +16,31 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Pure Java JavaFX 7th Screen: Business Insights & Prescriptive Decision Matrix.
- * Displays automated prescriptive actions derived from real-time analytics,
- * and acts as the official launchpad for the upcoming AI Copilot.
+ * Pure Java JavaFX 7th Screen: Business Insights & Interactive AI Copilot.
+ * Integrates deterministic prescriptive actions with a real-time conversational
+ * reasoning agent ingesting live MetricContext telemetry.
  */
 public class BusinessInsightsView extends ScrollPane {
 
     private final AnalyticsService analyticsService;
+    private final AiCopilotEngine copilotEngine = new AiCopilotEngine();
     private final List<Recommendation> masterRecommendations = new ArrayList<>();
+    private MetricContext currentContext = null;
 
     private VBox mainContainer;
     private VBox recommendationsCardContainer;
     private StackPane loadingOverlay;
     private Label notificationBanner;
+
+    // Copilot UI components
+    private TextField copilotInputField;
+    private VBox copilotResponseCard;
+    private Label copilotHeadline;
+    private Label copilotUrgencyBadge;
+    private FlowPane copilotMetricsPane;
+    private Label copilotNarrative;
+    private VBox copilotActionsContainer;
+    private FlowPane copilotFollowUpsPane;
 
     private Label lblTotalRecs;
     private Label lblUrgentCount;
@@ -50,10 +64,10 @@ public class BusinessInsightsView extends ScrollPane {
 
         // 1. Top Header
         VBox headerBox = new VBox(4);
-        Label title = new Label("Titan Watches — Strategic Business Insights & Prescriptions");
+        Label title = new Label("Titan Watches — Strategic Business Insights & AI Copilot");
         title.setStyle("-fx-text-fill: " + Theme.TEXT_PRIMARY + "; -fx-font-size: 24px; -fx-font-weight: bold;");
 
-        Label subtitle = new Label("Prescriptive decision-support rules, operational interventions, and AI Copilot surveillance");
+        Label subtitle = new Label("Prescriptive decision-support rules, operational interventions, and real-time AI Copilot reasoning");
         subtitle.setStyle("-fx-text-fill: " + Theme.TEXT_MUTED + "; -fx-font-size: 13px;");
         headerBox.getChildren().addAll(title, subtitle);
 
@@ -62,8 +76,8 @@ public class BusinessInsightsView extends ScrollPane {
         notificationBanner.setManaged(false);
         notificationBanner.setStyle("-fx-background-color: rgba(16, 185, 129, 0.15); -fx-text-fill: #34D399; -fx-padding: 10 16 10 16; -fx-background-radius: 8px; -fx-font-size: 13px;");
 
-        // 2. AI Copilot Launchpad Hero Banner
-        VBox aiHeroCard = buildAiCopilotHeroBanner();
+        // 2. Interactive AI Copilot Section
+        VBox aiCopilotSection = buildAiCopilotSection();
 
         // 3. Stat KPI Cards
         HBox statsRow = buildStatsRow();
@@ -74,12 +88,12 @@ public class BusinessInsightsView extends ScrollPane {
         // 5. Prescriptive Cards Container
         recommendationsCardContainer = new VBox(16);
 
-        mainContainer.getChildren().addAll(headerBox, notificationBanner, aiHeroCard, statsRow, filterBar, recommendationsCardContainer);
+        mainContainer.getChildren().addAll(headerBox, notificationBanner, aiCopilotSection, statsRow, filterBar, recommendationsCardContainer);
 
         // Loading Overlay
         loadingOverlay = new StackPane();
         loadingOverlay.setStyle("-fx-background-color: rgba(10, 14, 23, 0.7);");
-        VBox loadBox = new VBox(12, new ProgressIndicator(), new Label("Synthesizing strategic business insights..."));
+        VBox loadBox = new VBox(12, new ProgressIndicator(), new Label("Synthesizing strategic business insights & telemetry..."));
         loadBox.setAlignment(Pos.CENTER);
         loadBox.getChildren().get(1).setStyle("-fx-text-fill: " + Theme.COLOR_ACCENT_PRIMARY + "; -fx-font-size: 14px;");
         loadingOverlay.getChildren().add(loadBox);
@@ -89,38 +103,247 @@ public class BusinessInsightsView extends ScrollPane {
         setContent(rootWrapper);
     }
 
-    private VBox buildAiCopilotHeroBanner() {
-        VBox card = new VBox(12);
+    private VBox buildAiCopilotSection() {
+        VBox card = new VBox(16);
         card.setStyle(
-                "-fx-background-color: linear-gradient(to right, #162032, #0F2A3D); " +
-                "-fx-background-radius: 12px; " +
+                "-fx-background-color: linear-gradient(to right, #131D31, #0E2436); " +
+                "-fx-background-radius: 14px; " +
                 "-fx-border-color: #38BDF8; " +
-                "-fx-border-radius: 12px; " +
+                "-fx-border-radius: 14px; " +
                 "-fx-border-width: 1px; " +
-                "-fx-padding: 20px;"
+                "-fx-padding: 22px;"
         );
 
+        // Header
         HBox titleRow = new HBox(12);
         titleRow.setAlignment(Pos.CENTER_LEFT);
 
-        Label aiBadge = new Label("AI COPILOT LAUNCHPAD");
-        aiBadge.setStyle("-fx-background-color: rgba(56, 189, 248, 0.2); -fx-text-fill: #38BDF8; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 4 10 4 10; -fx-background-radius: 6px;");
+        Label aiBadge = new Label("🤖 AI COPILOT REASONING TERMINAL");
+        aiBadge.setStyle("-fx-background-color: rgba(56, 189, 248, 0.2); -fx-text-fill: #38BDF8; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 5 12 5 12; -fx-background-radius: 6px;");
 
         Label readyStatus = new Label("● MetricContext Telemetry Engine Active");
         readyStatus.setStyle("-fx-text-fill: #10B981; -fx-font-size: 12px; -fx-font-weight: bold;");
 
-        titleRow.getChildren().addAll(aiBadge, readyStatus);
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        Label heading = new Label("Deterministic Prescriptive Rules & Multi-Dimensional Diagnostic Engine");
-        heading.setStyle("-fx-text-fill: " + Theme.TEXT_PRIMARY + "; -fx-font-size: 16px; -fx-font-weight: bold;");
+        Label localServerLbl = new Label("🌐 Localhost Server: http://localhost:8080");
+        localServerLbl.setStyle("-fx-text-fill: #94A3B8; -fx-font-size: 11px; -fx-background-color: rgba(255,255,255,0.06); -fx-padding: 4 10 4 10; -fx-background-radius: 6px;");
 
-        Label body = new Label("Growth 360 AI evaluates inventory safety stocks, marketing spend variance, and Encircle buyer recency " +
-                "to synthesize instant, deterministic management actions. Ready for seamless integration with upcoming ML Copilot models.");
-        body.setWrapText(true);
-        body.setStyle("-fx-text-fill: " + Theme.TEXT_SECONDARY + "; -fx-font-size: 13px;");
+        titleRow.getChildren().addAll(aiBadge, readyStatus, spacer, localServerLbl);
 
-        card.getChildren().addAll(titleRow, heading, body);
+        // Quick Prompt Chips
+        FlowPane chipsPane = new FlowPane(8, 8);
+        chipsPane.getChildren().addAll(
+                createPromptChip("📈 Analyze Profit & Margins", "Analyze current profit health"),
+                createPromptChip("⚠️ Explain Marketing Anomaly (Z > 3.0)", "Explain marketing expense anomaly"),
+                createPromptChip("📦 Check Watch Inventory (ROP)", "Check watch inventory and stockout risks"),
+                createPromptChip("👥 Reactivate At-Risk Collectors", "How to win back at-risk customers?"),
+                createPromptChip("🏆 Improve Growth Score to 90+", "How do we improve our Growth Score?"),
+                createPromptChip("🔮 Revenue Forecast (OLS)", "What is next month revenue forecast?"),
+                createPromptChip("🎯 30-Day Executive Action Plan", "Give me a 30-day executive action plan")
+        );
+
+        // Input Bar
+        HBox inputBar = new HBox(10);
+        inputBar.setAlignment(Pos.CENTER_LEFT);
+
+        copilotInputField = new TextField();
+        copilotInputField.setPromptText("Ask Growth 360 AI Copilot anything about sales, inventory, expenses, or forecasts...");
+        copilotInputField.setStyle(
+                "-fx-background-color: #0B1220; " +
+                "-fx-text-fill: #F8FAFC; " +
+                "-fx-border-color: rgba(56, 189, 248, 0.4); " +
+                "-fx-border-radius: 8px; " +
+                "-fx-background-radius: 8px; " +
+                "-fx-padding: 10 16 10 16; " +
+                "-fx-font-size: 13px;"
+        );
+        HBox.setHgrow(copilotInputField, Priority.ALWAYS);
+        copilotInputField.setOnAction(e -> executeCopilotQuery(copilotInputField.getText()));
+
+        Button btnAsk = new Button("⚡ Ask Copilot");
+        btnAsk.setStyle(
+                "-fx-background-color: #0284C7; " +
+                "-fx-text-fill: #FFFFFF; " +
+                "-fx-font-weight: bold; " +
+                "-fx-border-radius: 8px; " +
+                "-fx-background-radius: 8px; " +
+                "-fx-padding: 10 20 10 20; " +
+                "-fx-cursor: hand;"
+        );
+        btnAsk.setOnAction(e -> executeCopilotQuery(copilotInputField.getText()));
+
+        Button btnClear = new Button("🧹 Reset");
+        btnClear.setStyle(
+                "-fx-background-color: rgba(255,255,255,0.06); " +
+                "-fx-text-fill: #94A3B8; " +
+                "-fx-border-color: rgba(255,255,255,0.1); " +
+                "-fx-border-radius: 8px; " +
+                "-fx-background-radius: 8px; " +
+                "-fx-padding: 10 16 10 16; " +
+                "-fx-cursor: hand;"
+        );
+        btnClear.setOnAction(e -> {
+            copilotInputField.clear();
+            executeCopilotQuery("overview");
+        });
+
+        inputBar.getChildren().addAll(copilotInputField, btnAsk, btnClear);
+
+        // Response Card Container
+        copilotResponseCard = buildCopilotResponseCard();
+
+        card.getChildren().addAll(titleRow, chipsPane, inputBar, copilotResponseCard);
         return card;
+    }
+
+    private Button createPromptChip(String title, String query) {
+        Button chip = new Button(title);
+        chip.setStyle(
+                "-fx-background-color: #1A263D; " +
+                "-fx-text-fill: #CBD5E1; " +
+                "-fx-border-color: rgba(56, 189, 248, 0.25); " +
+                "-fx-border-radius: 16px; " +
+                "-fx-background-radius: 16px; " +
+                "-fx-padding: 6 14 6 14; " +
+                "-fx-font-size: 12px; " +
+                "-fx-cursor: hand;"
+        );
+        chip.setOnAction(e -> {
+            copilotInputField.setText(query);
+            executeCopilotQuery(query);
+        });
+        return chip;
+    }
+
+    private VBox buildCopilotResponseCard() {
+        VBox box = new VBox(12);
+        box.setStyle(
+                "-fx-background-color: #090F1B; " +
+                "-fx-background-radius: 10px; " +
+                "-fx-border-color: rgba(56, 189, 248, 0.3); " +
+                "-fx-border-radius: 10px; " +
+                "-fx-border-width: 1px; " +
+                "-fx-padding: 18px;"
+        );
+
+        // Headline & Urgency Badge Row
+        HBox topRow = new HBox(12);
+        topRow.setAlignment(Pos.CENTER_LEFT);
+
+        copilotHeadline = new Label("Initializing AI Copilot Telemetry Engine...");
+        copilotHeadline.setStyle("-fx-text-fill: #FFFFFF; -fx-font-size: 15px; -fx-font-weight: bold;");
+        HBox.setHgrow(copilotHeadline, Priority.ALWAYS);
+
+        copilotUrgencyBadge = new Label("NORMAL");
+        copilotUrgencyBadge.setStyle("-fx-background-color: rgba(56, 189, 248, 0.2); -fx-text-fill: #38BDF8; -fx-padding: 3 8 3 8; -fx-background-radius: 4px; -fx-font-size: 10px; -fx-font-weight: bold;");
+
+        topRow.getChildren().addAll(copilotHeadline, copilotUrgencyBadge);
+
+        // Metrics FlowPane
+        copilotMetricsPane = new FlowPane(8, 8);
+
+        // Narrative Content Label
+        copilotNarrative = new Label("Loading operational state...");
+        copilotNarrative.setWrapText(true);
+        copilotNarrative.setStyle("-fx-text-fill: #CBD5E1; -fx-font-size: 13px; -fx-line-spacing: 3px;");
+
+        // Prescriptive Actions Container
+        copilotActionsContainer = new VBox(6);
+        copilotActionsContainer.setStyle(
+                "-fx-background-color: rgba(16, 185, 129, 0.08); " +
+                "-fx-border-color: rgba(16, 185, 129, 0.25); " +
+                "-fx-border-radius: 8px; " +
+                "-fx-background-radius: 8px; " +
+                "-fx-padding: 12px 16px;"
+        );
+
+        // Follow Up Prompts FlowPane
+        VBox followUpBox = new VBox(6);
+        Label followUpTitle = new Label("SUGGESTED EXPLORATION FOLLOW-UPS:");
+        followUpTitle.setStyle("-fx-text-fill: #64748B; -fx-font-size: 10px; -fx-font-weight: bold;");
+        copilotFollowUpsPane = new FlowPane(8, 8);
+        followUpBox.getChildren().addAll(followUpTitle, copilotFollowUpsPane);
+
+        box.getChildren().addAll(topRow, copilotMetricsPane, copilotNarrative, copilotActionsContainer, followUpBox);
+        return box;
+    }
+
+    private void executeCopilotQuery(String query) {
+        if (currentContext == null) {
+            try {
+                currentContext = analyticsService.computeMetricContext();
+            } catch (Exception e) {
+                showNotification("Failed to fetch MetricContext: " + e.getMessage(), true);
+                return;
+            }
+        }
+
+        CopilotResponse response = copilotEngine.ask(query, currentContext);
+        renderCopilotResponse(response);
+    }
+
+    private void renderCopilotResponse(CopilotResponse resp) {
+        copilotHeadline.setText(resp.headline());
+
+        // Urgency styling
+        copilotUrgencyBadge.setText(resp.urgency().name());
+        switch (resp.urgency()) {
+            case CRITICAL -> copilotUrgencyBadge.setStyle("-fx-background-color: rgba(239, 68, 68, 0.25); -fx-text-fill: #EF4444; -fx-padding: 3 8 3 8; -fx-background-radius: 4px; -fx-font-size: 10px; -fx-font-weight: bold;");
+            case HIGH -> copilotUrgencyBadge.setStyle("-fx-background-color: rgba(245, 158, 11, 0.25); -fx-text-fill: #F59E0B; -fx-padding: 3 8 3 8; -fx-background-radius: 4px; -fx-font-size: 10px; -fx-font-weight: bold;");
+            case WATCH -> copilotUrgencyBadge.setStyle("-fx-background-color: rgba(245, 158, 11, 0.2); -fx-text-fill: #FBBF24; -fx-padding: 3 8 3 8; -fx-background-radius: 4px; -fx-font-size: 10px; -fx-font-weight: bold;");
+            case NORMAL -> copilotUrgencyBadge.setStyle("-fx-background-color: rgba(56, 189, 248, 0.2); -fx-text-fill: #38BDF8; -fx-padding: 3 8 3 8; -fx-background-radius: 4px; -fx-font-size: 10px; -fx-font-weight: bold;");
+        }
+
+        // Metrics tags
+        copilotMetricsPane.getChildren().clear();
+        for (String m : resp.keyMetrics()) {
+            Label tag = new Label(m);
+            tag.setStyle("-fx-background-color: rgba(255,255,255,0.08); -fx-text-fill: #38BDF8; -fx-font-weight: bold; -fx-font-size: 11px; -fx-padding: 3 8 3 8; -fx-background-radius: 4px;");
+            copilotMetricsPane.getChildren().add(tag);
+        }
+
+        // Clean narrative markdown tags for pure JavaFX label
+        String cleanNarrative = resp.narrative()
+                .replace("### ", "")
+                .replace("**", "")
+                .replace("* ", "• ");
+        copilotNarrative.setText(cleanNarrative);
+
+        // Actions
+        copilotActionsContainer.getChildren().clear();
+        Label actHeader = new Label("★ PRESCRIPTIVE NEXT ACTIONS:");
+        actHeader.setStyle("-fx-text-fill: #10B981; -fx-font-size: 11px; -fx-font-weight: bold;");
+        copilotActionsContainer.getChildren().add(actHeader);
+
+        for (String act : resp.suggestedActions()) {
+            Label actLbl = new Label("→ " + act);
+            actLbl.setWrapText(true);
+            actLbl.setStyle("-fx-text-fill: #A7F3D0; -fx-font-size: 12px;");
+            copilotActionsContainer.getChildren().add(actLbl);
+        }
+
+        // Follow Up Chips
+        copilotFollowUpsPane.getChildren().clear();
+        for (String fu : resp.followUpPrompts()) {
+            Button fuBtn = new Button(fu);
+            fuBtn.setStyle(
+                    "-fx-background-color: rgba(255,255,255,0.05); " +
+                    "-fx-text-fill: #94A3B8; " +
+                    "-fx-border-color: rgba(255,255,255,0.1); " +
+                    "-fx-border-radius: 12px; " +
+                    "-fx-background-radius: 12px; " +
+                    "-fx-padding: 4 10 4 10; " +
+                    "-fx-font-size: 11px; " +
+                    "-fx-cursor: hand;"
+            );
+            fuBtn.setOnAction(e -> {
+                copilotInputField.setText(fu);
+                executeCopilotQuery(fu);
+            });
+            copilotFollowUpsPane.getChildren().add(fuBtn);
+        }
     }
 
     private HBox buildStatsRow() {
@@ -192,12 +415,18 @@ public class BusinessInsightsView extends ScrollPane {
                     masterRecommendations.addAll(snapshot.recommendations());
 
                     lblTotalRecs.setText(String.valueOf(masterRecommendations.size()));
-                    long urgent = masterRecommendations.stream().filter(r -> r.priority() == Priority.URGENT).count();
-                    long high = masterRecommendations.stream().filter(r -> r.priority() == Priority.HIGH).count();
+                    long urgent = masterRecommendations.stream().filter(r -> r.priority() == Recommendation.Priority.URGENT).count();
+                    long high = masterRecommendations.stream().filter(r -> r.priority() == Recommendation.Priority.HIGH).count();
                     lblUrgentCount.setText(String.valueOf(urgent));
                     lblHighCount.setText(String.valueOf(high));
 
                     applyFilter();
+
+                    // Pre-load Copilot with current context overview
+                    try {
+                        currentContext = analyticsService.computeMetricContext();
+                        executeCopilotQuery("overview");
+                    } catch (Exception ignored) {}
                 },
                 error -> {
                     loadingOverlay.setVisible(false);
@@ -299,7 +528,7 @@ public class BusinessInsightsView extends ScrollPane {
         return card;
     }
 
-    private String getBorderColorForPriority(Priority p) {
+    private String getBorderColorForPriority(Recommendation.Priority p) {
         return switch (p) {
             case URGENT -> "rgba(239, 68, 68, 0.4)";
             case HIGH -> "rgba(245, 158, 11, 0.4)";
@@ -308,7 +537,7 @@ public class BusinessInsightsView extends ScrollPane {
         };
     }
 
-    private String getBgColorForPriority(Priority p) {
+    private String getBgColorForPriority(Recommendation.Priority p) {
         return switch (p) {
             case URGENT -> "rgba(239, 68, 68, 0.18)";
             case HIGH -> "rgba(245, 158, 11, 0.18)";
@@ -317,7 +546,7 @@ public class BusinessInsightsView extends ScrollPane {
         };
     }
 
-    private String getTextColorForPriority(Priority p) {
+    private String getTextColorForPriority(Recommendation.Priority p) {
         return switch (p) {
             case URGENT -> "#EF4444";
             case HIGH -> "#F59E0B";

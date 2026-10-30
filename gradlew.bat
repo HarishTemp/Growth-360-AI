@@ -24,6 +24,7 @@
 @rem Set local scope for the variables with windows NT shell
 if "%OS%"=="Windows_NT" setlocal
 
+if "%JAVA_HOME%"=="" set "JAVA_HOME=C:\Users\ASUS\.jdks\temurin-21\jdk-21.0.12.1+1"
 set DIRNAME=%~dp0
 if "%DIRNAME%"=="" set DIRNAME=.
 set APP_BASE_NAME=%~n0

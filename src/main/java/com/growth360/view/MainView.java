@@ -1,6 +1,7 @@
 package com.growth360.view;
 
 import com.growth360.controller.*;
+import com.growth360.server.LocalhostCopilotServer;
 import com.growth360.service.*;
 import com.growth360.util.DBConnection;
 import com.growth360.util.Theme;
@@ -51,6 +52,9 @@ public class MainView extends BorderPane {
     private Label topBreadcrumb;
     private final List<Button> navButtons = new ArrayList<>();
     private Button activeNavBtn = null;
+    private Button btnInsightsRef = null;
+
+    private LocalhostCopilotServer localhostServer;
 
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("EEE, MMM dd • HH:mm");
 
@@ -69,6 +73,14 @@ public class MainView extends BorderPane {
         this.inventoryController = new InventoryController(productService, saleService);
         this.customerController = new CustomerController(customerService, saleService);
         this.alertController = new AlertController(analyticsService);
+
+        // Start embedded Pure-Java Localhost Copilot Server
+        try {
+            this.localhostServer = new LocalhostCopilotServer(analyticsService);
+            this.localhostServer.start();
+        } catch (Exception e) {
+            System.err.println("[MainView] Could not start localhost server: " + e.getMessage());
+        }
 
         buildUI();
     }
@@ -135,9 +147,9 @@ public class MainView extends BorderPane {
         Button btnInventory = createNavButton("📦  Watch Inventory (ROP)", () -> showInventory());
         Button btnCustomers = createNavButton("👥  Encircle Loyalty (RFM)", () -> showCustomers());
         Button btnAlerts = createNavButton("⚠️  Horology Risk Alerts", () -> showAlerts());
-        Button btnInsights = createNavButton("💡  Business Insights", () -> showBusinessInsights());
+        btnInsightsRef = createNavButton("🤖  AI Copilot & Insights", () -> showBusinessInsights());
 
-        navList.getChildren().addAll(btnDashboard, btnSales, btnExpenses, btnInventory, btnCustomers, btnAlerts, btnInsights);
+        navList.getChildren().addAll(btnDashboard, btnSales, btnExpenses, btnInventory, btnCustomers, btnAlerts, btnInsightsRef);
         VBox.setVgrow(navList, Priority.ALWAYS);
 
         // Footer / Database Engine Status
@@ -203,11 +215,24 @@ public class MainView extends BorderPane {
         Label clockLabel = new Label(LocalDateTime.now().format(TIME_FMT));
         clockLabel.setStyle("-fx-text-fill: " + Theme.TEXT_SECONDARY + "; -fx-font-size: 12px;");
 
+        Button btnCopilotHeader = new Button("🤖 AI Copilot");
+        btnCopilotHeader.setStyle(
+                "-fx-background-color: rgba(56, 189, 248, 0.15); " +
+                "-fx-text-fill: #38BDF8; " +
+                "-fx-border-color: #38BDF8; " +
+                "-fx-border-radius: 6px; -fx-background-radius: 6px; -fx-padding: 7 14 7 14; -fx-cursor: hand; -fx-font-weight: bold;"
+        );
+        btnCopilotHeader.setOnAction(e -> {
+            if (btnInsightsRef != null) {
+                btnInsightsRef.fire();
+            }
+        });
+
         Button btnRefresh = new Button("🔄 Refresh Analytics");
         btnRefresh.setStyle(Theme.BTN_SECONDARY);
         btnRefresh.setOnAction(e -> refreshCurrentView());
 
-        header.getChildren().addAll(titleBox, spacer, clockLabel, btnRefresh);
+        header.getChildren().addAll(titleBox, spacer, clockLabel, btnCopilotHeader, btnRefresh);
         return header;
     }
 
@@ -298,5 +323,12 @@ public class MainView extends BorderPane {
         } else if (current instanceof BusinessInsightsView biv) {
             biv.loadInsights();
         }
+    }
+
+    public void shutdown() {
+        if (localhostServer != null) {
+            localhostServer.stop();
+        }
+        analyticsService.shutdown();
     }
 }

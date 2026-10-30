@@ -29,9 +29,11 @@ public class Main extends Application {
         DataSeeder.seedIfEmpty();
     }
 
+    private MainView mainView;
+
     @Override
     public void start(Stage primaryStage) {
-        MainView mainView = new MainView();
+        mainView = new MainView();
 
         Scene scene = new Scene(mainView, 1360, 850);
         primaryStage.setTitle("Titan Watches — Growth 360 AI Decision Support & Horology Analytics");
@@ -39,6 +41,14 @@ public class Main extends Application {
         primaryStage.setMinHeight(700);
         primaryStage.setScene(scene);
         primaryStage.show();
+    }
+
+    @Override
+    public void stop() throws Exception {
+        if (mainView != null) {
+            mainView.shutdown();
+        }
+        super.stop();
     }
 
     public static void main(String[] args) {
