@@ -1,0 +1,22 @@
+# Build artifacts
+.gradle/
+build/
+target/
+out/
+
+# IDE & Editor files
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# Runtime data files (H2 embedded files generated during execution)
+data/*.mv.db
+data/*.trace.db
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
