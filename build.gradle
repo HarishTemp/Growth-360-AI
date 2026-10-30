@@ -20,6 +20,10 @@ repositories {
 dependencies {
     implementation 'com.mysql:mysql-connector-j:8.3.0'
     implementation 'com.h2database:h2:2.2.224'
+    // Smile ML — Real Machine Learning (Random Forest, Isolation Forest, K-Means, Logistic Regression)
+    implementation 'com.github.haifengl:smile-core:3.1.1'
+    // JSON parsing for Ollama & Gemini LLM API responses
+    implementation 'org.json:json:20240303'
     testImplementation 'org.junit.jupiter:junit-jupiter:5.10.2'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
